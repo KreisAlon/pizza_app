@@ -30,13 +30,15 @@ const menu = {
 
 let orders = [];
 
-// routes
+// Helper to generate unique order ID
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// GET menu
 app.get('/api/menu', (req, res) => {
     res.status(200).json(menu);
 });
 
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
+// POST create order
 app.post('/api/orders', (req, res) => {
     const { customerName, phone, deliveryAddress, pizzas } = req.body;
 
@@ -52,13 +54,13 @@ app.post('/api/orders', (req, res) => {
 
         if (!p || !s) return res.status(400).json({ error: "bad pizza or size" });
 
-        if (item.toppingIds && item.toppingIds.length > 3) {
-            return res.status(400).json({ error: "max 3 toppings" });
+        // Personal rule (ID suffix 4): Large pizza must have at least 1 topping
+        if (s.name === 'Large' && (!item.toppingIds || item.toppingIds.length === 0)) {
+            return res.status(400).json({ error: "Large pizza must have at least one topping" });
         }
 
-        // personal rule: large pizza must have at least 1 topping
-        if (s.name === 'Large' && (!item.toppingIds || item.toppingIds.length === 0)) {
-            return res.status(400).json({ error: "large needs topping" });
+        if (item.toppingIds && item.toppingIds.length > 3) {
+            return res.status(400).json({ error: "max 3 toppings" });
         }
 
         let tPrice = 0;
@@ -72,23 +74,35 @@ app.post('/api/orders', (req, res) => {
         totalPrice += p.price + s.price + tPrice;
     }
 
-    const newOrder = { id: generateId(), customerName, phone, deliveryAddress, pizzas, totalPrice, status: "new", createdAt: new Date().toISOString() };
+    const newOrder = {
+        id: generateId(),
+        customerName,
+        phone,
+        deliveryAddress,
+        pizzas,
+        totalPrice,
+        status: "new",
+        createdAt: new Date().toISOString()
+    };
     orders.push(newOrder);
     res.status(201).json(newOrder);
 });
 
+// GET order by ID
 app.get('/api/orders/:id', (req, res) => {
     const order = orders.find(o => o.id === req.params.id);
     if (!order) return res.status(404).json({ error: "not found" });
     res.status(200).json(order);
 });
 
+// GET filtered orders
 app.get('/api/orders', (req, res) => {
     const status = req.query.status;
     if (!status) return res.status(200).json([]);
     res.status(200).json(orders.filter(o => o.status === status));
 });
 
+// PATCH update status
 app.patch('/api/orders/:id/status', (req, res) => {
     const { status } = req.body;
     const order = orders.find(o => o.id === req.params.id);
@@ -107,6 +121,3 @@ app.patch('/api/orders/:id/status', (req, res) => {
 // server init
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
-
-// Keep the server alive
-setInterval(() => { }, 1000);
